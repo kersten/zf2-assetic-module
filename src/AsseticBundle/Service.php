@@ -1,17 +1,17 @@
 <?php
 namespace AsseticBundle;
 
+use Assetic\Asset\AssetCache;
 use Assetic\Asset\AssetCollection;
+use Assetic\Asset\AssetInterface;
 use Assetic\AssetManager;
-use Assetic\FilterManager as AsseticFilterManager;
+use Assetic\AssetWriter;
+use Assetic\Cache\FilesystemCache;
 use Assetic\Factory;
 use Assetic\Factory\Worker\WorkerInterface;
-use Assetic\AssetWriter;
-use Assetic\Asset\AssetInterface;
-use Assetic\Asset\AssetCache;
-use Assetic\Cache\FilesystemCache;
-use Zend\View\Renderer\RendererInterface as Renderer;
+use Assetic\FilterManager as AsseticFilterManager;
 use AsseticBundle\View\StrategyInterface;
+use Zend\View\Renderer\RendererInterface as Renderer;
 
 class Service
 {
@@ -419,11 +419,16 @@ class Service
      * @param AssetCollection $asset
      * @return string
      */
-    public function moveRaw(AssetCollection $asset, $targetPath = null )
+    public function moveRaw(AssetCollection $asset, $targetPath = null, $disableSourcePath = null )
     {
         foreach ($asset as $value) {
             /** @var $value AssetInterface */
-            $value->setTargetPath(( $targetPath ? $targetPath : '' ) . $value->getSourcePath());
+            if ( $disableSourcePath ) {
+                $value->setTargetPath(( $targetPath ? $targetPath : '' ) . basename( $value->getSourcePath() ) );
+            } else {
+                $value->setTargetPath(( $targetPath ? $targetPath : '' ) . $value->getSourcePath());
+            }
+
             $value = $this->cacheAsset($value);
             $this->writeAsset($value);
         }
@@ -452,7 +457,11 @@ class Service
         // Allow to move all files 1:1 to new directory
         // its particularly useful when this assets are i.e. images.
         if ($moveRaw) {
-            $this->moveRaw($asset, $targetPath);
+            if ( isset( $options['disable_source_path'] ) && $options['disable_source_path'] ) {
+                $this->moveRaw( $asset, $targetPath, $options['disable_source_path'] );
+            } else {
+                $this->moveRaw( $asset, $targetPath );
+            }
         } else {
             $asset = $this->cacheAsset($asset);
             $this->assetManager->set($name, $asset);
